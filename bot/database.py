@@ -38,7 +38,11 @@ class Base(AsyncAttrs, DeclarativeBase):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
-    # Генерация имени таблицы на основе имени класса
     @classmethod
+    @property
     def __tablename__(cls) -> str:
         return cls.__name__.lower()
+
+    def __repr__(self) -> str:
+        """Строковое представление объекта для удобства отладки"""
+        return f"<{self.__class__.__name__}(id={self.id}, created_at={self.created_at}, updated_at={self.updated_at})>"

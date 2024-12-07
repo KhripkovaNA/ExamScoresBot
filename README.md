@@ -8,13 +8,11 @@
     │   └── migrations/       # Миграции Alembic
     │
     ├── users/
-    │   ├── __init__.py
-    │   ├── handlers.py       # Логика регистрации пользователей
+    │   ├── router.py         # Логика регистрации пользователей
     │   └── models.py         # SQLAlchemy-модели для пользователей
     │
     ├── scores/
-    │   ├── __init__.py
-    │   ├── handlers.py       # Логика работы с баллами ЕГЭ
+    │   ├── router.py         # Логика работы с баллами ЕГЭ
     │   └── models.py         # SQLAlchemy-модели для баллов ЕГЭ
     │
     ├── docker-compose.yml    # Конфигурация Docker

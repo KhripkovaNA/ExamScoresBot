@@ -9,10 +9,7 @@ from bot.scores.router import router as scores_router
 async def set_default_commands():
     """Устанавливает команды бота в Telegram"""
     commands = [
-        BotCommand(command="/start", description="Начать работу с ботом"),
-        BotCommand(command="/register", description="Зарегистрироваться"),
-        BotCommand(command="/enter_scores", description="Ввести баллы ЕГЭ"),
-        BotCommand(command="/view_scores", description="Посмотреть баллы ЕГЭ"),
+        BotCommand(command="/start", description="Начать работу с ботом")
     ]
     await bot.set_my_commands(commands, scope=BotCommandScopeDefault())
     logger.info("Команды бота установлены")
