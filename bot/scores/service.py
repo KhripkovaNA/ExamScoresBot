@@ -140,14 +140,16 @@ async def get_exam_scores(telegram_id: int, session: AsyncSession) -> List[UserE
 
 def format_table(scores: List[UserExamScoreModel]) -> str:
     # Формируем таблицу с выравниванием
+    delimiter_1 = f"{'-' * 30}"
+    delimiter_2 = f"{'=' * 30}"
     scores_list = "\n".join(
-        [f"{score.subject:<25}|{score.score:>6}" for score in scores]
+        [f"{score.subject:<25}{score.score:>5}\n{delimiter_1}" for score in scores]
     )
 
     return "Ваши баллы:\n\n"\
            "```\n"\
-           f"{'Предмет':<25}|{'Балл':>6}\n"\
-           f"{'-' * 32}\n"\
+           f"{'Предмет':<25}{'Балл':>5}\n"\
+           f"{delimiter_2}\n"\
            f"{scores_list}"\
            "```"
 
