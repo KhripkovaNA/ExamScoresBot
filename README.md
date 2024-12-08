@@ -1,4 +1,3 @@
-
 ```
     ExamScoresBot/
     │

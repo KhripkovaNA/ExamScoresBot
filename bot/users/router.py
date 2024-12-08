@@ -27,8 +27,8 @@ async def start_handler(message: Message):
         if commands_updated:
             full_name = existing_user.full_name() or message.from_user.full_name or 'Пользователь'
             await message.answer(
-                f"С возвращением, {full_name}! "
-                "Вы уже зарегистрированы. Используйте команды /enter_scores и /view_scores для работы с баллами ЕГЭ"
+                f"С возвращением, {full_name}!\n"
+                "Вы уже зарегистрированы. Используйте команды /enter\_scores и /view\_scores для работы с баллами ЕГЭ"
             )
         else:
             await message.answer(
@@ -63,7 +63,7 @@ async def register_handler(message: Message, state: FSMContext):
         if existing_user:
             await message.answer(
                 f"Вы уже зарегистрированы как {existing_user.full_name()}.\n"
-                "Используйте команды /enter_scores и /view_scores для работы с баллами ЕГЭ"
+                "Используйте команды /enter\_scores и /view\_scores для работы с баллами ЕГЭ"
             )
             logger.info(f"Пользователь {telegram_id} уже зарегистрирован")
             return
