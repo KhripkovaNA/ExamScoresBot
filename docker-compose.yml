@@ -10,9 +10,17 @@ services:
       - .env_prod
     depends_on:
       - db
+    command: ["docker/bot.sh"]
+    restart: on-failure
 
   db:
     image: postgres:16
     container_name: db_app
     env_file:
       - .env_prod
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: on-failure
+
+volumes:
+  postgres_data:
