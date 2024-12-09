@@ -8,12 +8,13 @@ from aiogram.fsm.state import StatesGroup, State
 from loguru import logger
 from bot.database import connection
 from bot.users.dao import UsersDAO
-from bot.users.schemas import TelegramIDModel, TelegramUserModel
+from bot.users.schemas import TelegramIDModel, TelegramUserModel, UserModel
 
 
 class RegisterState(StatesGroup):
     waiting_for_first_name = State()
     waiting_for_last_name = State()
+    waiting_for_confirmation_to_update = State()
 
 
 @connection
@@ -33,8 +34,9 @@ async def update_commands_based_on_registration(bot: Bot, chat_id: Union[int, st
     try:
         if is_registered:
             commands = [
-                BotCommand(command="/enter_scores", description="Ввести баллы ЕГЭ"),
-                BotCommand(command="/view_scores", description="Посмотреть баллы ЕГЭ"),
+                BotCommand(command="enter_scores", description="Ввести баллы ЕГЭ"),
+                BotCommand(command="view_scores", description="Посмотреть баллы ЕГЭ"),
+                BotCommand(command="register", description="Редактировать аккаунт")
             ]
         else:
             commands = [
@@ -83,9 +85,26 @@ async def check_name(name: str) -> str | None:
 
 
 @connection
-async def register_user(telegram_id: int, first_name: str, last_name: str, session: AsyncSession) -> None:
-    """Регистрация нового пользователя в базе данных"""
+async def register_user(
+        telegram_id: int, first_name: str, last_name: str, session: AsyncSession, update: bool = False
+) -> None:
+    """Регистрация нового пользователя или обновление существующего"""
     try:
+        if update:
+            # Обновляем данные существующего пользователя
+            updated_rows = await UsersDAO.update(
+                session,
+                filters=TelegramIDModel(telegram_id=telegram_id),
+                values=UserModel(first_name=first_name, last_name=last_name)
+            )
+            if updated_rows:
+                logger.info(f"Данные пользователя (Telegram ID: {telegram_id}) успешно обновлены")
+                return
+            else:
+                logger.warning(f"Пользователь с Telegram ID {telegram_id} не найден для обновления")
+                raise ValueError("Пользователь не найден для обновления")
+
+        # Регистрируем нового пользователя
         user_data = TelegramUserModel(
             telegram_id=telegram_id, first_name=first_name, last_name=last_name
         )
@@ -94,7 +113,25 @@ async def register_user(telegram_id: int, first_name: str, last_name: str, sessi
         logger.info(f"Пользователь {first_name} {last_name} (Telegram ID: {telegram_id}) успешно зарегистрирован")
     except IntegrityError:
         logger.warning(f"Пользователь с Telegram ID {telegram_id} уже существует в базе")
-        raise ValueError("Пользователь уже зарегистрирован")
+        if not update:
+            raise ValueError("Пользователь уже зарегистрирован")
     except Exception as e:
         logger.error(f"Ошибка при регистрации пользователя {telegram_id}: {e}")
         raise
+
+
+async def add_remove_cancel_command(bot: Bot, chat_id: Union[int, str], action: str):
+    """Добавляет или удаляет команду /cancel для конкретного чата"""
+    scope = BotCommandScopeChat(chat_id=chat_id)
+    commands = await bot.get_my_commands(scope=scope)
+    cancel_command = BotCommand(command="cancel", description="Отмена")
+
+    if action == "add" and cancel_command not in commands:
+        # Добавляем команду, если её ещё нет
+        commands.append(cancel_command)
+        await bot.set_my_commands(commands, scope=scope)
+
+    elif action == "remove":
+        # Удаляем команду, если она существует
+        commands = [cmd for cmd in commands if cmd.command != cancel_command.command]
+        await bot.set_my_commands(commands, scope=scope)

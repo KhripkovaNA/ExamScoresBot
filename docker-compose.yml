@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: examscoresbot
+    env_file:
+      - .env_prod
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16
+    container_name: db_app
+    env_file:
+      - .env_prod

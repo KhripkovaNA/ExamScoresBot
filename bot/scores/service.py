@@ -101,17 +101,17 @@ async def save_score(telegram_id: int, subject: str, score: int, session: AsyncS
                 values=ScoreModel(score=score)
             )
             if updated_count > 0:
-                logger.info(f"Балл для предмета '{subject}' обновлен для пользователя {user.id}. Новый балл: {score}")
+                logger.info(f"Балл для предмета {subject} обновлен для пользователя {user.id}. Новый балл: {score}")
                 return True
             else:
-                logger.info(f"Не удалось обновить балл для предмета '{subject}' пользователя {user.id}")
+                logger.info(f"Не удалось обновить балл для предмета {subject} пользователя {user.id}")
 
         else:
             # Создаем новую запись, если её нет
             new_score_schema = UserExamScoreModel(user_id=user.id, subject=subject, score=score)
             new_score = await ExamScoresDAO.add(session, new_score_schema)
             if new_score:
-                logger.info(f"Создание нового балла для предмета '{subject}' у пользователя {user.id}. Балл: {score}")
+                logger.info(f"Создание нового балла для предмета {subject} у пользователя {user.id}. Балл: {score}")
                 return True
 
         return False

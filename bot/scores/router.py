@@ -3,10 +3,13 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.dispatcher.router import Router
 from aiogram.fsm.context import FSMContext
 from loguru import logger
+
+from bot.config import bot
 from bot.scores.keyboards import choose_subject_kb, confirm_kb
 from bot.scores.service import EnterScoreState, check_subject, EXAM_SUBJECTS, get_existing_score, save_score, \
     validate_score, get_exam_scores, format_table
-from bot.users.service import check_user
+from bot.users.router import cancel_handler
+from bot.users.service import check_user, add_remove_cancel_command
 
 router = Router()
 
@@ -31,15 +34,21 @@ async def enter_score_handler(message: Message, state: FSMContext):
             return
 
         await message.answer("Введите название предмета:")
+        await add_remove_cancel_command(bot, message.chat.id, "add")
         await state.set_state(EnterScoreState.waiting_for_subject)
     except Exception as e:
         logger.error(f"Ошибка при обработке команды /enter_scores для пользователя {telegram_id}: {e}")
+        await add_remove_cancel_command(bot, message.chat.id, "remove")
+        await state.clear()
         await message.answer("Произошла ошибка. Попробуйте снова позже")
 
 
 @router.message(EnterScoreState.waiting_for_subject)
 async def handle_subject_input(message: Message, state: FSMContext):
     """Обрабатывает введенное название предмета"""
+    if message.text.startswith("/"):
+        await cancel_handler(message, state)
+        return
     telegram_id = message.from_user.id
     subject_entered = message.text.strip()
 
@@ -55,11 +64,13 @@ async def handle_subject_input(message: Message, state: FSMContext):
             await message.answer("Подтвердите выбранный предмет:", reply_markup=subject_kb)
         else:
             await message.answer("Выберите подходящий предмет из списка:", reply_markup=subject_kb)
+        await add_remove_cancel_command(bot, message.chat.id, "add")
         await state.set_state(EnterScoreState.waiting_for_confirmation)
     except Exception as e:
         logger.error(f"Ошибка при обработке предмета '{subject_entered}' для пользователя {telegram_id}: {e}")
-        await message.answer("Произошла ошибка. Попробуйте снова позже")
+        await add_remove_cancel_command(bot, message.chat.id, "remove")
         await state.clear()
+        await message.answer("Произошла ошибка. Попробуйте снова позже")
 
 
 @router.callback_query(EnterScoreState.waiting_for_confirmation)
@@ -75,6 +86,7 @@ async def handle_subject_choice(callback: CallbackQuery, state: FSMContext):
         if selected_subject == "Отмена":
             await callback.message.answer("Действие отменено")
             logger.info(f"Пользователь {telegram_id} отменил ввод предмета")
+            await add_remove_cancel_command(bot, callback.message.chat.id, "remove")
             await state.clear()
             return
 
@@ -100,12 +112,13 @@ async def handle_subject_choice(callback: CallbackQuery, state: FSMContext):
 
     except Exception as e:
         logger.error(f"Ошибка при выборе предмета '{selected_subject}' для пользователя {telegram_id}: {e}")
-        await callback.answer("Произошла ошибка. Попробуйте снова позже")
+        await add_remove_cancel_command(bot, callback.message.chat.id, "remove")
         await state.clear()
+        await callback.answer("Произошла ошибка. Попробуйте снова позже")
 
 
 @router.callback_query(EnterScoreState.waiting_for_confirmation_to_update)
-async def handle_update_confirmation(callback: CallbackQuery, state: FSMContext):
+async def handle_score_update_confirmation(callback: CallbackQuery, state: FSMContext):
     """Подтверждает обновление балла для предмета"""
     telegram_id = callback.from_user.id
     confirmation = callback.data
@@ -119,6 +132,7 @@ async def handle_update_confirmation(callback: CallbackQuery, state: FSMContext)
         elif confirmation == "нет":
             await callback.message.answer("Действие отменено")
             logger.info(f"Пользователь {telegram_id} отказался обновлять балл для '{selected_subject}'")
+            await add_remove_cancel_command(bot, callback.message.chat.id, "remove")
             await state.clear()
         else:
             await callback.message.answer(
@@ -128,24 +142,30 @@ async def handle_update_confirmation(callback: CallbackQuery, state: FSMContext)
             )
     except Exception as e:
         logger.error(f"Ошибка при подтверждении обновления для пользователя {telegram_id}: {e}")
-        await callback.message.answer("Произошла ошибка. Попробуйте снова позже")
+        await add_remove_cancel_command(bot, callback.message.chat.id, "remove")
         await state.clear()
+        await callback.message.answer("Произошла ошибка. Попробуйте снова позже")
 
 
 @router.message(EnterScoreState.waiting_for_score)
 async def handle_score_input(message: Message, state: FSMContext):
     """Сохраняет или обновляет балл для выбранного предмета"""
+    if message.text.startswith("/"):
+        await cancel_handler(message, state)
+        return
     telegram_id = message.from_user.id
     score = message.text.strip()
+    data = await state.get_data()
+    selected_subject = data.get("subject")
 
     try:
         if not validate_score(score):
-            await message.answer("Балл должен быть числом от 0 до 100. Попробуйте снова")
+            await message.answer(
+                "Балл должен быть числом от 0 до 100. Попробуйте снова.\n"
+                f"Введите балл для предмета {selected_subject}:"
+            )
             logger.warning(f"Некорректный ввод балла '{score}' от пользователя {telegram_id}")
             return
-
-        data = await state.get_data()
-        selected_subject = data.get("subject")
 
         success = await save_score(telegram_id, selected_subject, int(score))
         if success:
@@ -160,6 +180,7 @@ async def handle_score_input(message: Message, state: FSMContext):
         logger.error(f"Ошибка при вводе балла для пользователя {telegram_id}: {e}")
         await message.answer("Произошла ошибка. Попробуйте снова позже")
     finally:
+        await add_remove_cancel_command(bot, message.chat.id, "remove")
         await state.clear()
 
 
